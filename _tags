@@ -1,0 +1,3 @@
+true: debug
+true: bin_annot
+true: warn(A)
