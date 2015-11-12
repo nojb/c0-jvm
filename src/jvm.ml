@@ -288,49 +288,66 @@ let output_class oc cls =
   output_int16 oc (Array.length cls.attributes);
   Array.iter (output_attribute oc) cls.attributes
 
+let get_const tbl c =
+  if Hashtbl.mem tbl c then
+    Hashtbl.find tbl c
+  else begin
+    let i = Hashtbl.length tbl + 1 in
+    Hashtbl.add tbl c i;
+    i
+  end
+
+let get_utf8 tbl s =
+  get_const tbl (CONSTANT_Utf8 s)
+
+let get_class tbl name =
+  get_const tbl (CONSTANT_Class (get_utf8 tbl name))
+
+let get_constant_pool tbl =
+  let lst = Hashtbl.fold (fun c i acc -> (c, i) :: acc) tbl [] in
+  let lst = List.sort (fun (_, i) (_, j) -> Pervasives.compare i j) lst in
+  Array.of_list (List.map fst lst)
+
 let test_main {max_locals; max_stack; code} =
+  let tbl = Hashtbl.create 0 in
+  let this_class = get_class tbl "Main" in
+  let super_class = get_class tbl "java/lang/Object" in
+  let methods =
+    [|
+      {
+        access_flags = [ACC_PUBLIC; ACC_STATIC; ACC_FINAL];
+        name_index = get_utf8 tbl "main";
+        descriptor_index = get_utf8 tbl "([Ljava/lang/String;)V";
+        attributes =
+          [|
+            {
+              attribute_name_index = get_utf8 tbl "Code";
+              attribute_info =
+                Code
+                  {
+                    max_stack;
+                    max_locals;
+                    code = "\177";
+                    exception_table = [| |];
+                    attributes = [| |];
+                  };
+            };
+          |];
+      }
+    |]
+  in
+  let constant_pool = get_constant_pool tbl in
   {
     magic = 0xCAFEBABEl;
     minor_version = 0;
     major_version = 50;
-    constant_pool =
-      [|
-        CONSTANT_Class 3;
-        CONSTANT_Class 4;
-        CONSTANT_Utf8 "Main";
-        CONSTANT_Utf8 "java/lang/Object";
-        CONSTANT_Utf8 "main";
-        CONSTANT_Utf8 "([Ljava/lang/String;)V";
-        CONSTANT_Utf8 "Code";
-      |];
+    constant_pool;
     access_flags = [ACC_SYNTHETIC; ACC_FINAL];
-    this_class = 1;
-    super_class = 2;
+    this_class;
+    super_class;
     interfaces = [| |];
     fields = [| |];
-    methods =
-      [|
-        {
-          access_flags = [ACC_PUBLIC; ACC_STATIC; ACC_FINAL];
-          name_index = 5;
-          descriptor_index = 6;
-          attributes =
-            [|
-              {
-                attribute_name_index = 7;
-                attribute_info =
-                  Code
-                    {
-                      max_stack;
-                      max_locals;
-                      code = "\177";
-                      exception_table = [| |];
-                      attributes = [| |];
-                    };
-              };
-            |];
-        }
-      |];
+    methods;
     attributes = [| |];
   }
 
