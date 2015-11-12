@@ -136,7 +136,7 @@ type class_file =
 type instruction =
   | Kiload of int
   | Kistore of int
-  | Kiconst of int32
+  | Kldc of int32
   | Kiadd
   | Kisub
   | Kimul
@@ -153,6 +153,22 @@ type instruction =
   | Kdup2_x2
   | Kswap
   | Kireturn
+
+let instruction_size = function
+  | Kiload (0 | 1 | 2 | 3)
+  | Kistore (0 | 1 | 2 | 3) ->
+      1
+  | Kiload _
+  | Kistore _ -> (* FIXME wide *)
+      2
+  | Kldc (-1l | 0l | 1l | 2l | 3l | 4l | 5l) ->
+      1
+  | Kldc _ -> (* FIXME wide *)
+      2
+  | Kiadd | Kisub | Kimul | Kidiv | Kirem | Kineg
+  | Kpop | Kpop2 | Kdup | Kdup2 | Kdup_x1 | Kdup_x2
+  | Kdup2_x1 | Kdup2_x2 | Kswap | Kireturn ->
+      1
 
 type binop =
   | Add | Sub | Mul | Div
@@ -181,7 +197,7 @@ let rec compile_exp sz env exp cont =
   if sz > !max_stack then max_stack := sz;
   match exp with
   | Const n ->
-      Kiconst n :: cont
+      Kldc n :: cont
   | Ident id ->
       let pos = M.find id env in
       Kiload pos :: cont
@@ -233,7 +249,11 @@ let output_constant oc = function
       output_byte oc 1;
       output_int16 oc (String.length bytes);
       output_string oc bytes (* FIXME Unicode *)
-  | _ -> failwith "output_constant"
+  | CONSTANT_Integer n ->
+      output_byte oc 3;
+      output_int32 oc n
+  | _ ->
+      failwith "output_constant"
 
 let output_flags oc flags =
   let n = List.fold_left (fun acc flag -> acc lor (int_of_flag flag)) 0 flags in
@@ -297,6 +317,9 @@ let get_const tbl c =
     i
   end
 
+let get_int tbl n =
+  get_const tbl (CONSTANT_Integer n)
+
 let get_utf8 tbl s =
   get_const tbl (CONSTANT_Utf8 s)
 
@@ -308,16 +331,82 @@ let get_constant_pool tbl =
   let lst = List.sort (fun (_, i) (_, j) -> Pervasives.compare i j) lst in
   Array.of_list (List.map fst lst)
 
+external set_byte : string -> int -> int -> unit = "%string_safe_set"
+
+let write_inst tbl str idx inst =
+  match inst with
+  | Kiload (0 | 1 | 2 | 3 as n) ->
+      set_byte str idx (26 + n)
+  | Kiload n ->
+      set_byte str idx 21;
+      set_byte str (idx+1) n
+  | Kistore (0 | 1 | 2 | 3 as n) ->
+      set_byte str idx (59 + n)
+  | Kistore n ->
+      set_byte str idx 54;
+      set_byte str (idx+1) n
+  | Kldc (-1l | 0l | 1l | 2l | 3l | 4l | 5l as n)  ->
+      set_byte str idx (3 + Int32.to_int n)
+  | Kldc n when n = Int32.of_int (Int32.to_int n land 0xFF) ->
+      set_byte str idx 16;
+      set_byte str (idx+1) (Int32.to_int n)
+  | Kldc n ->
+      set_byte str idx 18;
+      set_byte str (idx+1) (get_int tbl n)
+  | Kiadd ->
+      set_byte str idx 96
+  | Kisub ->
+      set_byte str idx 100
+  | Kimul ->
+      set_byte str idx 104
+  | Kidiv ->
+      set_byte str idx 108
+  | Kirem ->
+      set_byte str idx 112
+  | Kineg ->
+      set_byte str idx 116
+  | Kpop ->
+      set_byte str idx 87
+  | Kpop2 ->
+      set_byte str idx 88
+  | Kdup ->
+      set_byte str idx 89
+  | Kdup2 ->
+      set_byte str idx 92
+  | Kdup_x1 ->
+      set_byte str idx 90
+  | Kdup2_x1 ->
+      set_byte str idx 93
+  | Kdup_x2 ->
+      set_byte str idx 91
+  | Kdup2_x2 ->
+      set_byte str idx 94
+  | Kswap ->
+      set_byte str idx 95
+  | Kireturn ->
+      set_byte str idx 172
+
+let get_code tbl code =
+  let len = List.fold_left (fun acc i -> acc + instruction_size i) 0 code in
+  let str = String.make len '\000' in
+  let _ =
+    List.fold_left (fun idx inst ->
+        write_inst tbl str idx inst; idx + instruction_size inst
+      ) 0 code
+  in
+  str
+
 let test_main {max_locals; max_stack; code} =
   let tbl = Hashtbl.create 0 in
   let this_class = get_class tbl "Main" in
   let super_class = get_class tbl "java/lang/Object" in
+  let code = get_code tbl code in
   let methods =
     [|
       {
         access_flags = [ACC_PUBLIC; ACC_STATIC; ACC_FINAL];
         name_index = get_utf8 tbl "main";
-        descriptor_index = get_utf8 tbl "([Ljava/lang/String;)V";
+        descriptor_index = get_utf8 tbl "()I";
         attributes =
           [|
             {
@@ -327,7 +416,7 @@ let test_main {max_locals; max_stack; code} =
                   {
                     max_stack;
                     max_locals;
-                    code = "\177";
+                    code;
                     exception_table = [| |];
                     attributes = [| |];
                   };
@@ -352,5 +441,5 @@ let test_main {max_locals; max_stack; code} =
   }
 
 let () =
-  let cls = test_main {max_stack = 0; max_locals = 1; code = []} in
+  let cls = test_main {max_stack = 0; max_locals = 0; code = []} in
   output_class stdout cls
