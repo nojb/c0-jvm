@@ -115,6 +115,8 @@ let rec attribute_length = function
       8 + String.length code.code + 2 +
       8 * Array.length code.exception_table +
       2 + Array.fold_left (fun acc attr -> acc + 6 + attribute_length attr.attribute_info) 0 code.attributes
+  | SourceFile _ ->
+      2
   | _ ->
       failwith "attribute_length"
 
@@ -182,6 +184,8 @@ let rec output_attribute_info oc = function
       Array.iter (output_exception_table_info oc) code.exception_table;
       output_int16 oc (Array.length code.attributes);
       Array.iter (output_attribute oc) code.attributes
+  | SourceFile sourcefile_index ->
+      output_int16 oc sourcefile_index
   | _ ->
       failwith "output_attribute_info"
 

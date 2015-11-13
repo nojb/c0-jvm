@@ -23,6 +23,6 @@
 let () =
   let lexbuf = Lexing.from_channel stdin in
   let _, prog = Parser.program Lexer.token lexbuf in
-  let prog = Compile.compile prog in
+  let prog = Compile.compile "<stdin>" prog in
   let cls = Emit.emit prog in
   ClassFile.output_class stdout cls

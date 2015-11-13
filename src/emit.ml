@@ -110,7 +110,7 @@ let get_code tbl code =
   in
   str
 
-let emit {Compile.max_locals; max_stack; code} =
+let emit {Compile.source_file; max_locals; max_stack; code} =
   let tbl = Hashtbl.create 0 in
   let this_class = get_class tbl "Main" in
   let super_class = get_class tbl "java/lang/Object" in
@@ -139,6 +139,12 @@ let emit {Compile.max_locals; max_stack; code} =
       }
     |]
   in
+  let source_file =
+    {
+      attribute_name_index = get_utf8 tbl "SourceFile";
+      attribute_info = SourceFile (get_utf8 tbl source_file);
+    }
+  in
   let constant_pool = get_constant_pool tbl in
   {
     magic = 0xCAFEBABEl;
@@ -151,5 +157,8 @@ let emit {Compile.max_locals; max_stack; code} =
     interfaces = [| |];
     fields = [| |];
     methods;
-    attributes = [| |];
+    attributes =
+      [|
+        source_file;
+      |];
   }

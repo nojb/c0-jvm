@@ -103,15 +103,16 @@ let rec compile_stmt loc env stmt cont =
 
 type program =
   {
+    source_file : string;
     max_locals : int;
     max_stack : int;
     code : instruction list;
   }
 
-let compile prog =
+let compile source_file prog =
   max_locals := 0;
   max_stack := 0;
   let code = compile_stmt 0 M.empty prog [] in
   let max_locals = !max_locals in
   let max_stack = !max_stack + 1 in
-  {max_locals; max_stack; code}
+  {source_file; max_locals; max_stack; code}
