@@ -68,7 +68,7 @@ let compile_binop = function
 
 module M = Map.Make (String)
 
-let max_stack = ref 0
+let max_stack = ref (-1)
 
 let rec compile_exp sz env exp cont =
   if sz > !max_stack then max_stack := sz;
@@ -113,5 +113,5 @@ let compile prog =
   max_stack := 0;
   let code = compile_stmt 0 M.empty prog [] in
   let max_locals = !max_locals in
-  let max_stack = !max_stack in
+  let max_stack = !max_stack + 1 in
   {max_locals; max_stack; code}
