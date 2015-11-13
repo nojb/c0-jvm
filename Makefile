@@ -1,7 +1,7 @@
 OCAMLBUILD = ocamlbuild -classic-display -use-ocamlfind
 
 all:
-	$(OCAMLBUILD) src/jvm.byte
+	$(OCAMLBUILD) src/main.byte
 
 clean:
 	$(OCAMLBUILD) -clean
