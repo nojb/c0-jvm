@@ -21,5 +21,8 @@
    SOFTWARE. *)
 
 let () =
-  let cls = Emit.emit {Compile.max_stack = 0; max_locals = 0; code = []} in
+  let lexbuf = Lexing.from_channel stdin in
+  let _, prog = Parser.program Lexer.token lexbuf in
+  let prog = Compile.compile prog in
+  let cls = Emit.emit prog in
   ClassFile.output_class stdout cls
