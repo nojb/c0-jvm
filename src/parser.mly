@@ -31,9 +31,9 @@ let rec elab_stmts = function
 %token PLUS MINUS TIMES SLASH PERCENT
 %token PLUSEQUAL MINUSEQUAL TIMESEQUAL SLASHEQUAL PERCENTEQUAL
 
-%left PLUS MINUS        /* lowest precedence */
-%left TIMES SLASH         /* medium precedence */
-%nonassoc UMINUS        /* highest precedence */
+%left PLUS MINUS
+%left TIMES SLASH PERCENT
+%nonassoc UMINUS
 
 %start program             /* the entry point */
 %type <string * Ast.stmt> program
@@ -84,5 +84,5 @@ exp
 | exp TIMES exp                { Binop ($1, Mul, $3) }
 | exp SLASH exp                { Binop ($1, Div, $3) }
 | exp PERCENT exp              { Binop ($1, Mod, $3) }
-| MINUS exp                    { Binop (Const 0l, Sub, $2) }
+| MINUS exp %prec UMINUS       { Binop (Const 0l, Sub, $2) }
 ;
