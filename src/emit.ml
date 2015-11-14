@@ -99,22 +99,44 @@ let write_inst tbl str idx inst =
       set_byte str idx 95
   | Kireturn ->
       set_byte str idx 172
+  | Kpushlocal _ | Kpoplocal | Kline _ ->
+      assert false
 
 let get_code tbl code =
   let len = List.fold_left (fun acc i -> acc + Compile.instruction_size i) 0 code in
+  let the_locals = ref [] in
   let str = String.make len '\000' in
-  let _ =
-    List.fold_left (fun idx inst ->
-        write_inst tbl str idx inst; idx + Compile.instruction_size inst
-      ) 0 code
+  let rec loop locals line i = function
+    | [] -> !the_locals, str
+    | Compile.Kpushlocal (pos, id) :: rest ->
+        let locals = (pos, id, i) :: locals in
+        loop locals line i rest
+    | Kpoplocal :: rest ->
+        let (pos, id, i0), locals = match locals with x :: y -> x, y | [] -> assert false in
+        the_locals := (get_utf8 tbl id, pos, i0, i - i0) :: !the_locals;
+        loop locals line i rest
+    | inst :: rest ->
+        write_inst tbl str i inst;
+        loop locals line (i + Compile.instruction_size inst) rest
   in
-  str
+  loop [] (-1) 0 code
 
 let emit {Compile.source_file; max_locals; max_stack; code} =
   let tbl = Hashtbl.create 0 in
   let this_class = get_class tbl "Main" in
   let super_class = get_class tbl "java/lang/Object" in
-  let code = get_code tbl code in
+  let locals, code = get_code tbl code in
+  let local_variables =
+    Array.of_list (List.map (fun (name_index, index, start_pc, length) ->
+        {
+          start_pc;
+          length;
+          name_index;
+          descriptor_index = get_utf8 tbl "I";
+          index;
+        }
+      ) locals)
+  in
   let methods =
     [|
       {
@@ -134,6 +156,10 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
                     exception_table = [| |];
                     attributes = [| |];
                   };
+            };
+            {
+              attribute_name_index = get_utf8 tbl "LocalVariableTable";
+              attribute_info = LocalVariableTable local_variables;
             };
           |];
       }

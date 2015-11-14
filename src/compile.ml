@@ -40,6 +40,9 @@ type instruction =
   | Kdup2_x2
   | Kswap
   | Kireturn
+  | Kpushlocal of (int * string)
+  | Kpoplocal
+  | Kline of int
 
 let instruction_size = function
   | Kiload (0 | 1 | 2 | 3)
@@ -56,6 +59,8 @@ let instruction_size = function
   | Kpop | Kpop2 | Kdup | Kdup2 | Kdup_x1 | Kdup_x2
   | Kdup2_x1 | Kdup2_x2 | Kswap | Kireturn ->
       1
+  | Kpushlocal _ | Kpoplocal | Kline _ ->
+      0
 
 open Ast
 
@@ -89,8 +94,8 @@ let rec compile_stmt loc env stmt cont =
   | Declare (id, None, stmt) ->
       compile_stmt (loc+1) (M.add id loc env) stmt cont
   | Declare (id, Some e, stmt) ->
-      let cont = compile_stmt (loc+1) (M.add id loc env) stmt cont in
-      compile_exp 0 env e (Kistore loc :: cont)
+      let cont = compile_stmt (loc+1) (M.add id loc env) stmt (Kpoplocal :: cont) in
+      compile_exp 0 env e (Kistore loc :: Kpushlocal (loc, id) :: cont)
   | Assign (id, e) ->
       let loc = M.find id env in
       compile_exp 0 env e (Kistore loc :: cont)

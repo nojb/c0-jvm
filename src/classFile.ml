@@ -88,6 +88,15 @@ type exception_table_info =
     catch_type : int;
   }
 
+type local_variable_info =
+  {
+    start_pc : int;
+    length : int;
+    name_index : int;
+    descriptor_index : int;
+    index : int;
+  }
+
 type code_attribute =
   {
     max_stack : int;
@@ -100,6 +109,7 @@ type code_attribute =
 and attribute_info =
   | ConstantValue of int (* constant_value_index *)
   | Code of code_attribute
+  | LocalVariableTable of local_variable_info array
   | StackMapTable of stack_map_frame array (* entries *)
   | Exceptions of int array (* exception_index_table *)
   | SourceFile of int (* sourcefile_index *)
@@ -117,6 +127,8 @@ let rec attribute_length = function
       2 + Array.fold_left (fun acc attr -> acc + 6 + attribute_length attr.attribute_info) 0 code.attributes
   | SourceFile _ ->
       2
+  | LocalVariableTable lvs ->
+      2 + 10 * Array.length lvs
   | _ ->
       failwith "attribute_length"
 
@@ -174,6 +186,13 @@ let output_field _oc = function
 let output_exception_table_info _oc = function
   | _ -> failwith "output_exception_table_info"
 
+let output_local_variable_info oc (lv : local_variable_info) =
+  output_int16 oc lv.start_pc;
+  output_int16 oc lv.length;
+  output_int16 oc lv.name_index;
+  output_int16 oc lv.descriptor_index;
+  output_int16 oc lv.index
+
 let rec output_attribute_info oc = function
   | Code code ->
       output_int16 oc code.max_stack;
@@ -186,6 +205,9 @@ let rec output_attribute_info oc = function
       Array.iter (output_attribute oc) code.attributes
   | SourceFile sourcefile_index ->
       output_int16 oc sourcefile_index
+  | LocalVariableTable local_variables ->
+      output_int16 oc (Array.length local_variables);
+      Array.iter (output_local_variable_info oc) local_variables;
   | _ ->
       failwith "output_attribute_info"
 
