@@ -74,17 +74,26 @@ let compile_binop = function
 module M = Map.Make (String)
 
 let max_stack = ref (-1)
+let last_line = ref (-1)
 
 let rec compile_exp sz env exp cont =
   if sz > !max_stack then max_stack := sz;
-  match exp.desc with
-  | Const n ->
-      Kldc n :: cont
-  | Ident id ->
-      let pos = M.find id env in
-      Kiload pos :: cont
-  | Binop (e1, op, e2) ->
-      compile_exp sz env e1 (compile_exp (sz+1) env e2 (compile_binop op :: cont))
+  let cont =
+    match exp.desc with
+    | Const n ->
+        Kldc n :: cont
+    | Ident id ->
+        let pos = M.find id env in
+        Kiload pos :: cont
+    | Binop (e1, op, e2) ->
+        compile_exp sz env e1 (compile_exp (sz+1) env e2 (compile_binop op :: cont))
+  in
+  let lnum = line_num exp in
+  if lnum <> !last_line then begin
+    last_line := lnum;
+    Kline lnum :: cont
+  end else
+    cont
 
 let max_locals = ref 0
 

@@ -47,3 +47,6 @@ let rec seq s1 s2 =
   | _, Nop -> s1
   | Seq (s, s'), _ -> seq s (seq s' s2)
   | _ -> Seq (s1, s2)
+
+let line_num {loc = (startpos, _); _} =
+  startpos.Lexing.pos_lnum

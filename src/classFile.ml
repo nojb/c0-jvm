@@ -97,6 +97,12 @@ type local_variable_info =
     index : int;
   }
 
+type line_number_info =
+  {
+    start_pc : int;
+    line_number : int;
+  }
+
 type code_attribute =
   {
     max_stack : int;
@@ -110,6 +116,7 @@ and attribute_info =
   | ConstantValue of int (* constant_value_index *)
   | Code of code_attribute
   | LocalVariableTable of local_variable_info array
+  | LineNumberTable of line_number_info array
   | StackMapTable of stack_map_frame array (* entries *)
   | Exceptions of int array (* exception_index_table *)
   | SourceFile of int (* sourcefile_index *)
@@ -129,6 +136,8 @@ let rec attribute_length = function
       2
   | LocalVariableTable lvs ->
       2 + 10 * Array.length lvs
+  | LineNumberTable line_numbers ->
+      2 + 4 * Array.length line_numbers
   | _ ->
       failwith "attribute_length"
 
@@ -193,6 +202,10 @@ let output_local_variable_info oc (lv : local_variable_info) =
   output_int16 oc lv.descriptor_index;
   output_int16 oc lv.index
 
+let output_line_number_info oc (ln : line_number_info) =
+  output_int16 oc ln.start_pc;
+  output_int16 oc ln.line_number
+
 let rec output_attribute_info oc = function
   | Code code ->
       output_int16 oc code.max_stack;
@@ -208,6 +221,9 @@ let rec output_attribute_info oc = function
   | LocalVariableTable local_variables ->
       output_int16 oc (Array.length local_variables);
       Array.iter (output_local_variable_info oc) local_variables;
+  | LineNumberTable line_numbers ->
+      output_int16 oc (Array.length line_numbers);
+      Array.iter (output_line_number_info oc) line_numbers
   | _ ->
       failwith "output_attribute_info"
 

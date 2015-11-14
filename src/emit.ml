@@ -106,26 +106,29 @@ let get_code tbl code =
   let len = List.fold_left (fun acc i -> acc + Compile.instruction_size i) 0 code in
   let the_locals = ref [] in
   let str = String.make len '\000' in
-  let rec loop locals line i = function
-    | [] -> !the_locals, str
+  let rec loop locals lines i = function
+    | [] -> !the_locals, List.rev lines, str
     | Compile.Kpushlocal (pos, id) :: rest ->
         let locals = (pos, id, i) :: locals in
-        loop locals line i rest
+        loop locals lines i rest
     | Kpoplocal :: rest ->
         let (pos, id, i0), locals = match locals with x :: y -> x, y | [] -> assert false in
         the_locals := (get_utf8 tbl id, pos, i0, i - i0) :: !the_locals;
-        loop locals line i rest
+        loop locals lines i rest
+    | Kline lnum :: rest ->
+        let lines = (lnum, i) :: lines in
+        loop locals lines i rest
     | inst :: rest ->
         write_inst tbl str i inst;
-        loop locals line (i + Compile.instruction_size inst) rest
+        loop locals lines (i + Compile.instruction_size inst) rest
   in
-  loop [] (-1) 0 code
+  loop [] [] 0 code
 
 let emit {Compile.source_file; max_locals; max_stack; code} =
   let tbl = Hashtbl.create 0 in
   let this_class = get_class tbl "Main" in
   let super_class = get_class tbl "java/lang/Object" in
-  let locals, code = get_code tbl code in
+  let locals, lines, code = get_code tbl code in
   let local_variables =
     Array.of_list (List.map (fun (name_index, index, start_pc, length) ->
         {
@@ -136,6 +139,9 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
           index;
         }
       ) locals)
+  in
+  let line_numbers =
+    Array.of_list (List.map (fun (line_number, start_pc) -> {start_pc; line_number}) lines)
   in
   let methods =
     [|
@@ -161,6 +167,10 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
               attribute_name_index = get_utf8 tbl "LocalVariableTable";
               attribute_info = LocalVariableTable local_variables;
             };
+            {
+              attribute_name_index = get_utf8 tbl "LineNumberTable";
+              attribute_info = LineNumberTable line_numbers;
+            }
           |];
       }
     |]
