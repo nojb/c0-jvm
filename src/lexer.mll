@@ -3,6 +3,7 @@ open Parser        (* The type token is defined in parser.mli *)
 }
 
 rule token = parse
+| "//"           { oneline_comment lexbuf }
 | [' ' '\t']     { token lexbuf }
 | '\n'           { Lexing.new_line lexbuf; token lexbuf }
 | "return"       { RETURN }
@@ -26,4 +27,9 @@ rule token = parse
 | ')'            { RIGHTPAREN }
 | '{'            { LEFTCURLY }
 | '}'            { RIGHTCURLY }
+| eof            { EOF }
+
+and oneline_comment = parse
+| '\n'           { Lexing.new_line lexbuf; token lexbuf }
+| _              { oneline_comment lexbuf }
 | eof            { EOF }
