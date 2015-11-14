@@ -77,7 +77,7 @@ let max_stack = ref (-1)
 
 let rec compile_exp sz env exp cont =
   if sz > !max_stack then max_stack := sz;
-  match exp with
+  match exp.desc with
   | Const n ->
       Kldc n :: cont
   | Ident id ->

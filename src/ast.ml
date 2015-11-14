@@ -20,20 +20,26 @@
    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE. *)
 
+type 'a desc =
+  {
+    desc : 'a;
+    loc : Lexing.position * Lexing.position;
+  }
+
 type binop =
   | Add | Sub | Mul | Div | Mod
 
 type exp =
   | Const of int32
   | Ident of string
-  | Binop of exp * binop * exp
+  | Binop of exp desc * binop * exp desc
 
 type stmt =
-  | Declare of string * exp option * stmt
-  | Assign of string * exp
+  | Declare of string * exp desc option * stmt
+  | Assign of string * exp desc
   | Nop
   | Seq of stmt * stmt
-  | Return of exp
+  | Return of exp desc
 
 let rec seq s1 s2 =
   match s1, s2 with

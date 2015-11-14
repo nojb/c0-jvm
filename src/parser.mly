@@ -1,11 +1,25 @@
 %{
 open Ast
 
+let mk desc =
+  let startpos = Parsing.symbol_start_pos () in
+  let endpos = Parsing.symbol_end_pos () in
+  {
+    desc;
+    loc = (startpos, endpos);
+  }
+
+let mkdummy desc =
+  {
+    desc;
+    loc = (Lexing.dummy_pos, Lexing.dummy_pos);
+  }
+
 type stmt =
-  | Rdecl of string * exp option
-  | Rassign of string * exp
-  | Rasnop of string * binop * exp
-  | Rreturn of exp
+  | Rdecl of string * exp desc option
+  | Rassign of string * exp desc
+  | Rasnop of string * binop * exp desc
+  | Rreturn of exp desc
 
 let elab stmt cont =
   match stmt with
@@ -14,7 +28,7 @@ let elab stmt cont =
   | Rassign (id, e) ->
       seq (Assign (id, e)) cont
   | Rasnop (id, op, e) ->
-      seq (Assign (id, Binop (Ident id, op, e))) cont
+      seq (Assign (id, {e with desc = Binop (mkdummy (Ident id), op, e)})) cont
   | Rreturn e ->
       seq (Return e) cont
 
@@ -77,12 +91,12 @@ lvalue
 
 exp
 : LEFTPAREN exp RIGHTPAREN     { $2 }
-| INTLIT                       { Const $1 }
-| IDENT                        { Ident $1 }
-| exp PLUS exp                 { Binop ($1, Add, $3) }
-| exp MINUS exp                { Binop ($1, Sub, $3) }
-| exp TIMES exp                { Binop ($1, Mul, $3) }
-| exp SLASH exp                { Binop ($1, Div, $3) }
-| exp PERCENT exp              { Binop ($1, Mod, $3) }
-| MINUS exp %prec UMINUS       { Binop (Const 0l, Sub, $2) }
+| INTLIT                       { mk (Const $1) }
+| IDENT                        { mk (Ident $1) }
+| exp PLUS exp                 { mk (Binop ($1, Add, $3)) }
+| exp MINUS exp                { mk (Binop ($1, Sub, $3)) }
+| exp TIMES exp                { mk (Binop ($1, Mul, $3)) }
+| exp SLASH exp                { mk (Binop ($1, Div, $3)) }
+| exp PERCENT exp              { mk (Binop ($1, Mod, $3)) }
+| MINUS exp %prec UMINUS       { mk (Binop (mkdummy (Const 0l), Sub, $2)) }
 ;
