@@ -57,10 +57,12 @@ let instruction_size = function
       2
   | Kiadd | Kisub | Kimul | Kidiv | Kirem | Kineg
   | Kpop | Kpop2 | Kdup | Kdup2 | Kdup_x1 | Kdup_x2
-  | Kdup2_x1 | Kdup2_x2 | Kswap | Kireturn ->
+  | Kdup2_x1 | Kdup2_x2 | Kswap ->
       1
   | Kpushlocal _ | Kpoplocal | Kline _ ->
       0
+  | Kireturn ->
+      4
 
 open Ast
 
@@ -95,7 +97,7 @@ let rec compile_exp sz env exp cont =
   end else
     cont
 
-let max_locals = ref 0
+let max_locals = ref (-1)
 
 let rec compile_stmt loc env stmt cont =
   if loc > !max_locals then max_locals := loc;
@@ -127,6 +129,6 @@ let compile source_file prog =
   max_locals := 0;
   max_stack := 0;
   let code = compile_stmt 0 M.empty prog [] in
-  let max_locals = !max_locals in
+  let max_locals = !max_locals + 1 in
   let max_stack = !max_stack + 1 in
   {source_file; max_locals; max_stack; code}

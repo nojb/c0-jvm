@@ -47,6 +47,17 @@ let get_constant_pool tbl =
 
 external set_byte : string -> int -> int -> unit = "%string_safe_set"
 
+let set_byte2 s idx n =
+  set_byte s idx ((n land 0xFF00) lsl 8);
+  set_byte s (idx+1) (n land 0xFF)
+
+let get_system_exit tbl =
+  let cls = get_class tbl "java/lang/System" in
+  let name_and_type =
+    get_const tbl (CONSTANT_NameAndType (get_utf8 tbl "exit", get_utf8 tbl "(I)V"))
+  in
+  get_const tbl (CONSTANT_Methodref (cls, name_and_type))
+
 let write_inst tbl str idx inst =
   match inst with
   | Compile.Kiload (0 | 1 | 2 | 3 as n) ->
@@ -98,7 +109,9 @@ let write_inst tbl str idx inst =
   | Kswap ->
       set_byte str idx 95
   | Kireturn ->
-      set_byte str idx 172
+      set_byte str idx 184; (* invokestatic *)
+      set_byte2 str (idx+1) (get_system_exit tbl);
+      set_byte str (idx+3) 177
   | Kpushlocal _ | Kpoplocal | Kline _ ->
       assert false
 
@@ -148,7 +161,7 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
       {
         access_flags = [ACC_PUBLIC; ACC_STATIC; ACC_FINAL];
         name_index = get_utf8 tbl "main";
-        descriptor_index = get_utf8 tbl "()I";
+        descriptor_index = get_utf8 tbl "([Ljava/lang/String;)V";
         attributes =
           [|
             {

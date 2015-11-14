@@ -182,6 +182,14 @@ let output_constant oc = function
   | CONSTANT_Integer n ->
       output_byte oc 3;
       output_int32 oc n
+  | CONSTANT_Methodref (class_index, name_and_type_index) ->
+      output_byte oc 10;
+      output_int16 oc class_index;
+      output_int16 oc name_and_type_index
+  | CONSTANT_NameAndType (name_index, descriptor_index) ->
+      output_byte oc 12;
+      output_int16 oc name_index;
+      output_int16 oc descriptor_index
   | _ ->
       failwith "output_constant"
 
