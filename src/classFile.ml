@@ -21,20 +21,20 @@
    SOFTWARE. *)
 
 type cp_info =
-  | CONSTANT_Class of int (* name_index *)
-  | CONSTANT_Fieldref of int * int (* class_index, name_and_type_index *)
-  | CONSTANT_Methodref of int * int (* class_index, name_and_type_index *)
-  | CONSTANT_InterfaceMethodref of int * int (* class_index, name_and_type_index *)
-  | CONSTANT_String of int (* string_index *)
-  | CONSTANT_Integer of int32 (* bytes *)
-  | CONSTANT_Float of int32 (* bytes, float ? *)
-  | CONSTANT_Long of int64 (* high_bytes, low_bytes *)
-  | CONSTANT_Double of float (* high_bytes, low_bytes *)
-  | CONSTANT_NameAndType of int * int (* name_index, descriptor_index *)
-  | CONSTANT_Utf8 of string (* bytes *)
-  | CONSTANT_MethodHandle of int * int (* reference_kind, refernece_index *)
-  | CONSTANT_MethodType of int (* descriptor_index *)
-  | CONSTANT_InvokeDynamic of int * int (* bootstrap_method_attr_index, name_and_type_index *)
+  | CONSTANT_Class of {name_index: int}
+  | CONSTANT_Fieldref of {class_index: int; name_and_type_index: int}
+  | CONSTANT_Methodref of {class_index: int; name_and_type_index: int}
+  | CONSTANT_InterfaceMethodref of {class_index: int; name_and_type_index: int}
+  | CONSTANT_String of {string_index: int}
+  | CONSTANT_Integer of {bytes: int32}
+  | CONSTANT_Float of {bytes: int32}
+  | CONSTANT_Long of {high_bytes: int32; low_bytes: int32}
+  | CONSTANT_Double of {high_bytes: int32; low_bytes: int32}
+  | CONSTANT_NameAndType of {name_index: int; descriptor_index: int}
+  | CONSTANT_Utf8 of {bytes: string}
+  | CONSTANT_MethodHandle of {reference_kind: int; reference_index: int}
+  | CONSTANT_MethodType of {descriptor_index: int}
+  | CONSTANT_InvokeDynamic of {bootstrap_method_attr_index: int; name_and_type_index: int}
 
 type access_flag =
   | ACC_PUBLIC
@@ -68,76 +68,67 @@ type verification_type_info =
   | ITEM_Double
   | ITEM_Null
   | ITEM_UninitializedThis
-  | ITEM_Object of int (* cpool_index *)
-  | ITEM_Uninitialized of int (* offset *)
+  | ITEM_Object of {cpool_index: int}
+  | ITEM_Uninitialized of {offset: int}
 
 type stack_map_frame =
-  | SAME of int (* offset_delta *)
-  | SAME_LOCALS_1_STACK_ITEM of int * verification_type_info (* offset_delta, stack *)
-  | SAME_LOCALS_1_STACK_ITEM_EXTENDED of int * verification_type_info (* offset_delta, stack *)
-  | CHOP of int * int (* k, offset_delta *)
-  | SAME_FRAME_EXTENDED of int (* offset_delta *)
-  | APPEND of int * int * verification_type_info array (* k, offset_delta, locals *)
-  | FULL_FRAME of int * verification_type_info array * verification_type_info array (* offset_delta, locals, stack *)
+  | SAME of {offset_delta: int}
+  | SAME_LOCALS_1_STACK_ITEM of {stack: verification_type_info}
+  | SAME_LOCALS_1_STACK_ITEM_EXTENDED of {offset_delta: int; stack: verification_type_info}
+  | CHOP of {k: int; offset_delta: int}
+  | SAME_FRAME_EXTENDED of {offset_delta: int}
+  | APPEND of {k: int; offset_delta: int; locals: verification_type_info array}
+  | FULL_FRAME of {offset_delta: int; locals: verification_type_info array; stack: verification_type_info array}
 
 type exception_table_info =
   {
-    start_pc : int;
-    end_pc : int;
-    handler_pc : int;
-    catch_type : int;
+    start_pc: int;
+    end_pc: int;
+    handler_pc: int;
+    catch_type: int;
   }
 
 type local_variable_info =
   {
-    start_pc : int;
-    length : int;
-    name_index : int;
-    descriptor_index : int;
-    index : int;
+    start_pc: int;
+    length: int;
+    name_index: int;
+    descriptor_index: int;
+    index: int;
   }
 
 type line_number_info =
   {
-    start_pc : int;
-    line_number : int;
+    start_pc: int;
+    line_number: int;
   }
 
-type code_attribute =
-  {
-    max_stack : int;
-    max_locals : int;
-    code : string;
-    exception_table : exception_table_info array;
-    attributes : attribute array;
-  }
-
-and attribute_info =
-  | ConstantValue of int (* constant_value_index *)
-  | Code of code_attribute
-  | LocalVariableTable of local_variable_info array
-  | LineNumberTable of line_number_info array
-  | StackMapTable of stack_map_frame array (* entries *)
-  | Exceptions of int array (* exception_index_table *)
-  | SourceFile of int (* sourcefile_index *)
+type attribute_info =
+  | ConstantValue of {constant_value_index: int}
+  | Code of {max_stack: int; max_locals: int; code: string; exception_table: exception_table_info array; attributes: attribute array}
+  | LocalVariableTable of {local_variable_table: local_variable_info array}
+  | LineNumberTable of {line_number_table: line_number_info array}
+  | StackMapTable of {entries: stack_map_frame array}
+  | Exceptions of {exception_index_table: int array}
+  | SourceFile of {sourcefile_index: int}
 
 and attribute =
   {
-    attribute_name_index : int;
-    attribute_info : attribute_info;
+    attribute_name_index: int;
+    attribute_info: attribute_info;
   }
 
 let rec attribute_length = function
-  | Code code ->
-      8 + String.length code.code + 2 +
-      8 * Array.length code.exception_table +
-      2 + Array.fold_left (fun acc attr -> acc + 6 + attribute_length attr.attribute_info) 0 code.attributes
+  | Code {code; exception_table; attributes; _} ->
+      8 + String.length code + 2 +
+      8 * Array.length exception_table +
+      2 + Array.fold_left (fun acc {attribute_info; _} -> acc + 6 + attribute_length attribute_info) 0 attributes
   | SourceFile _ ->
       2
-  | LocalVariableTable lvs ->
-      2 + 10 * Array.length lvs
-  | LineNumberTable line_numbers ->
-      2 + 4 * Array.length line_numbers
+  | LocalVariableTable {local_variable_table} ->
+      2 + 10 * Array.length local_variable_table
+  | LineNumberTable {line_number_table} ->
+      2 + 4 * Array.length line_number_table
   | _ ->
       failwith "attribute_length"
 
@@ -151,17 +142,17 @@ type field_info =
 
 type class_file =
   {
-    magic : int32;
-    minor_version : int;
-    major_version : int;
-    constant_pool : cp_info array;
-    access_flags : access_flag list;
-    this_class : int;
-    super_class : int;
-    interfaces : int array;
-    fields : field_info array;
-    methods : field_info array;
-    attributes : attribute array;
+    magic: int32;
+    minor_version: int;
+    major_version: int;
+    constant_pool: cp_info array;
+    access_flags: access_flag list;
+    this_class: int;
+    super_class: int;
+    interfaces: int array;
+    fields: field_info array;
+    methods: field_info array;
+    attributes: attribute array;
   }
 
 let output_int32 oc n =
@@ -172,21 +163,21 @@ let output_int16 oc n =
   output_byte oc (n land 0xFF)
 
 let output_constant oc = function
-  | CONSTANT_Class name_index ->
+  | CONSTANT_Class {name_index} ->
       output_byte oc 7;
       output_int16 oc name_index
-  | CONSTANT_Utf8 bytes ->
+  | CONSTANT_Utf8 {bytes} ->
       output_byte oc 1;
       output_int16 oc (String.length bytes);
       output_string oc bytes (* FIXME Unicode *)
-  | CONSTANT_Integer n ->
+  | CONSTANT_Integer {bytes} ->
       output_byte oc 3;
-      output_int32 oc n
-  | CONSTANT_Methodref (class_index, name_and_type_index) ->
+      output_int32 oc bytes
+  | CONSTANT_Methodref {class_index; name_and_type_index} ->
       output_byte oc 10;
       output_int16 oc class_index;
       output_int16 oc name_and_type_index
-  | CONSTANT_NameAndType (name_index, descriptor_index) ->
+  | CONSTANT_NameAndType {name_index; descriptor_index} ->
       output_byte oc 12;
       output_int16 oc name_index;
       output_int16 oc descriptor_index
@@ -224,14 +215,14 @@ let rec output_attribute_info oc = function
       Array.iter (output_exception_table_info oc) code.exception_table;
       output_int16 oc (Array.length code.attributes);
       Array.iter (output_attribute oc) code.attributes
-  | SourceFile sourcefile_index ->
+  | SourceFile {sourcefile_index} ->
       output_int16 oc sourcefile_index
-  | LocalVariableTable local_variables ->
-      output_int16 oc (Array.length local_variables);
-      Array.iter (output_local_variable_info oc) local_variables;
-  | LineNumberTable line_numbers ->
-      output_int16 oc (Array.length line_numbers);
-      Array.iter (output_line_number_info oc) line_numbers
+  | LocalVariableTable {local_variable_table} ->
+      output_int16 oc (Array.length local_variable_table);
+      Array.iter (output_local_variable_info oc) local_variable_table;
+  | LineNumberTable {line_number_table} ->
+      output_int16 oc (Array.length line_number_table);
+      Array.iter (output_line_number_info oc) line_number_table
   | _ ->
       failwith "output_attribute_info"
 
