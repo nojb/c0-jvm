@@ -20,6 +20,24 @@
    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE. *)
 
+type label = Label of int
+
+type stack_type_info =
+  | Tint
+  | Tfloat
+  | Tlong
+  | Tdouble
+  | Tnull
+  | Tobject of string
+  | Tuninitialized of label
+  | Tuninitialized_this
+
+type stack_frame =
+  | Fsame
+  | Fsingle of stack_type_info
+  | Fchop of int
+  | Fappend of stack_type_info list
+
 type instruction =
   | Kiload of int
   | Kistore of int
@@ -43,6 +61,8 @@ type instruction =
   | Kpushlocal of (int * string)
   | Kpoplocal
   | Kline of int
+  | Kstackframe of stack_frame
+  | Klabel of label
 
 let instruction_size = function
   | Kiload (0 | 1 | 2 | 3)
@@ -59,7 +79,7 @@ let instruction_size = function
   | Kpop | Kpop2 | Kdup | Kdup2 | Kdup_x1 | Kdup_x2
   | Kdup2_x1 | Kdup2_x2 | Kswap ->
       1
-  | Kpushlocal _ | Kpoplocal | Kline _ ->
+  | Kpushlocal _ | Kpoplocal | Kline _ | Kstackframe _ | Klabel _ ->
       0
   | Kireturn ->
       4
