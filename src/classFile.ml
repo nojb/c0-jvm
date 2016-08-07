@@ -73,7 +73,7 @@ type verification_type_info =
 
 type stack_map_frame =
   | SAME of {offset_delta: int}
-  | SAME_LOCALS_1_STACK_ITEM of {stack: verification_type_info}
+  | SAME_LOCALS_1_STACK_ITEM of {offset_delta: int; stack: verification_type_info}
   | SAME_LOCALS_1_STACK_ITEM_EXTENDED of {offset_delta: int; stack: verification_type_info}
   | CHOP of {k: int; offset_delta: int}
   | SAME_FRAME_EXTENDED of {offset_delta: int}

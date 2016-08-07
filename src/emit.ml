@@ -31,14 +31,14 @@ let get_const tbl c =
     i
   end
 
-let get_int tbl n =
-  get_const tbl (CONSTANT_Integer n)
+let get_int tbl bytes =
+  get_const tbl (CONSTANT_Integer {bytes})
 
-let get_utf8 tbl s =
-  get_const tbl (CONSTANT_Utf8 s)
+let get_utf8 tbl bytes =
+  get_const tbl (CONSTANT_Utf8 {bytes})
 
 let get_class tbl name =
-  get_const tbl (CONSTANT_Class (get_utf8 tbl name))
+  get_const tbl (CONSTANT_Class {name_index = get_utf8 tbl name})
 
 let get_constant_pool tbl =
   let lst = Hashtbl.fold (fun c i acc -> (c, i) :: acc) tbl [] in
@@ -52,11 +52,13 @@ let set_byte2 s idx n =
   set_byte s (idx+1) (n land 0xFF)
 
 let get_system_exit tbl =
-  let cls = get_class tbl "java/lang/System" in
-  let name_and_type =
-    get_const tbl (CONSTANT_NameAndType (get_utf8 tbl "exit", get_utf8 tbl "(I)V"))
+  let class_index = get_class tbl "java/lang/System" in
+  let name_and_type_index =
+    get_const tbl
+      (CONSTANT_NameAndType
+         {name_index = get_utf8 tbl "exit"; descriptor_index = get_utf8 tbl "(I)V"})
   in
-  get_const tbl (CONSTANT_Methodref (cls, name_and_type))
+  get_const tbl (CONSTANT_Methodref {class_index; name_and_type_index})
 
 let write_inst tbl str idx inst =
   match inst with
@@ -114,6 +116,8 @@ let write_inst tbl str idx inst =
       set_byte str (idx+3) 177
   | Kpushlocal _ | Kpoplocal | Kline _ ->
       assert false
+  | Kstackframe _ | Klabel _ ->
+      failwith "NOT IMPLEMENTED"
 
 let get_code tbl code =
   let len = List.fold_left (fun acc i -> acc + Compile.instruction_size i) 0 code in
@@ -142,7 +146,7 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
   let this_class = get_class tbl "Main" in
   let super_class = get_class tbl "java/lang/Object" in
   let locals, lines, code = get_code tbl code in
-  let local_variables =
+  let local_variable_table =
     Array.of_list (List.map (fun (name_index, index, start_pc, length) ->
         {
           start_pc;
@@ -153,7 +157,7 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
         }
       ) locals)
   in
-  let line_numbers =
+  let line_number_table =
     Array.of_list (List.map (fun (line_number, start_pc) -> {start_pc; line_number}) lines)
   in
   let methods =
@@ -178,11 +182,11 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
             };
             {
               attribute_name_index = get_utf8 tbl "LocalVariableTable";
-              attribute_info = LocalVariableTable local_variables;
+              attribute_info = LocalVariableTable {local_variable_table};
             };
             {
               attribute_name_index = get_utf8 tbl "LineNumberTable";
-              attribute_info = LineNumberTable line_numbers;
+              attribute_info = LineNumberTable {line_number_table};
             }
           |];
       }
@@ -191,7 +195,7 @@ let emit {Compile.source_file; max_locals; max_stack; code} =
   let source_file =
     {
       attribute_name_index = get_utf8 tbl "SourceFile";
-      attribute_info = SourceFile (get_utf8 tbl source_file);
+      attribute_info = SourceFile {sourcefile_index = get_utf8 tbl source_file};
     }
   in
   let constant_pool = get_constant_pool tbl in
