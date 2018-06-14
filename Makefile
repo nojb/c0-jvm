@@ -1,9 +1,7 @@
-OCAMLBUILD = ocamlbuild -classic-display -use-ocamlfind
-
 all:
-	$(OCAMLBUILD) src/main.byte
+	jbuilder build --dev @install
 
 clean:
-	$(OCAMLBUILD) -clean
+	jbuilder clean
 
 .PHONY: all clean

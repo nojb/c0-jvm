@@ -1,0 +1,15 @@
+(jbuild_version 1)
+
+(ocamllex (lexer))
+(ocamlyacc (parser))
+
+(library
+ ((name compiler)
+  (wrapped false)
+  (modules (ast classFile emit lexer parser compile))))
+
+(executable
+ ((name main)
+  (public_name c0j)
+  (modules (main))
+  (libraries (compiler))))
